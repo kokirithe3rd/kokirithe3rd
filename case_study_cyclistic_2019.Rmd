@@ -1,0 +1,303 @@
+---
+title: "Case Study: Cyclistic bike-share analysis"
+output: html_document
+date: "2024-08-28"
+---
+
+
+## My Data Analysis Notebook
+In this notebook I have recorded the entire process of my first independent data analysis after completing the "Google Data Analysis Professional Certificate" 6 month programm. Throughtout this notebook I will be following the six steps of analysis: 
+*Ask,
+*Prepare, 
+*Process,
+*Analyze, 
+*Share, and 
+*Act;
+
+
+## Scenario
+NOTE: The entire scenario, characters and company are fictional but using real life data.
+
+#### About the company
+In 2016, Cyclistic launched a successful bike-share offering. Since then, the program has grown to a fleet of 5,824 bicycles that are geotracked and locked into a network of 692 stations across Chicago. The bikes can be unlocked from one station and returned to any other station in the system anytime.
+
+Until now, Cyclistic’s marketing strategy relied on building general awareness and appealing to broad consumer segments. One approach that helped make these things possible was the
+flexibility of its pricing plans: single-ride passes, full-day passes, and annual memberships. Customers who purchase single-ride or full-day passes are referred to as casual riders. Customers who purchase annual memberships are Cyclistic members.
+
+Cyclistic’s finance analysts have concluded that annual members are much more profitable than casual riders. Although the pricing flexibility helps Cyclistic attract more customers, the company believes that maximizing the number of annual members will be key to future growth. Rather than creating a marketing campaign that targets all-new customers, they believe there is a solid opportunity to convert casual riders into members. They note that casual riders are already aware of the Cyclistic program and have chosen Cyclistic for their mobility needs.
+
+The company has set a clear goal: Design marketing strategies aimed at converting casual riders into annual members. In order to do that, however, the team needs to better understand how annual members and casual riders differ, why casual riders would buy a membership, and how digital media could affect their marketing tactics by analyzing the Cyclistic historical bike trip data to identify trends.
+
+
+### Deliverables:
+1. A clear statement of the business task
+2. A description of all data sources used
+3. Documentation of any cleaning or manipulation of data
+4. A summary of your analysis
+5. Supporting visualizations and key findings
+6. Your top three recommendations based on your analysis
+
+
+# STEP 1. DETERMINE BUSINESS TASK
+
+Design marketing strategies aimed at converting casual riders into
+annual members, focusing on the following questions:  
+1. How do annual members and casual riders use Cyclistic bikes differently?  
+2. Why would casual riders buy Cyclistic annual memberships?  
+3. How can Cyclistic use digital media to influence casual riders to become members?  
+
+##### The analysis goal
+How do annual members and casual riders use Cyclistic bikes differently?
+
+# STEP 2. ENSURE DATA VALIDITY, SOURCES AND PROPRIETIES  
+Public data collected and shared by Lyft Bikes and Scooters, LLC  operating the City of Chicago’s Divvy bicycle sharing service. ("[source](http://divvy-tripdata.s3.amazonaws.com/index.html)")
+
+
+##### License Agreement
+Lyft Bikes and Scooters, LLC grants a non-exclusive, royalty-free, limited, perpetual [license](http://divvybikes.com/data-license-agreement) to access, reproduce, analyze, copy, modify, distribute in products or services and use the data for any lawful purpose.
+
+
+# STEP 3: CLEAN UP AND ADD DATA TO PREPARE FOR ANALYSIS
+
+#### Initial Excel cleaning process
+
+1. The data for the bike_sharing service for the year 2019, has been downloaded having inconsistencies. The original source provided data in format of csv files for each quarter of the year. In this analysis we will look into the 4th quarter of 2019.
+
+2. The initial data preparation and cleaning process consisted of assuring it's integrity and consistency, renaming columns for clarity, changing data types where needed and cheking for duplicates. 
+![Initial_column_names.png](Initial_Q2_column_names.png) 
+**Initial_column_names**
+
+![final_column_names.png](Merged_column_names.png) 
+**column_names_after** 
+
+3. Furthermore, the data presented inconsistant data types throughout one column, which could lead later to erorrs, thus it was also changed.
+![image.png](before_uniformization.png)
+
+4. The data didn't present any double entries nor empty rows, thus not needing to delete any corrupt data. However, it is visible that the "gender" and "birthyear" have many empty cells, leading to the conclusion that the two variables were optional for customers to provide.
+
+5. After ensuring data's integrity, it was merged into one table using Microsoft Excel, then saved as a CSV file for further analysis and manipulation. 
+
+
+#### Data cleanup using RStudio
+
+```{r Loading packages, include=FALSE}
+# Loaded necessary libraries
+install.packages("tidyverse")
+library(tidyverse)
+
+# Used the conflicted package to manage conflicts
+library(conflicted)
+
+# Set dplyr::filter and dplyr::lag as the default choices
+conflict_prefer("filter", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+library(readr)
+library(dplyr)
+library(lubridate) 
+library(ggplot2)
+
+```
+
+Uploaded data in Rstudio/Posit.Cloud using the files menue
+
+```{r upload the datase}
+cyclistic_2019 <- read_csv("cyclistic_data_2019.csv",
+                           
+                           col_types = cols(
+                               trip_id = col_double(),
+                               start_time = col_character(),
+                               end_time = col_character(),
+                               from_station_name = col_character(),
+                               to_station_name = col_character(),
+                               bikeid = col_double(),
+                               tripduration = col_double(), # is measured in seconds
+                               gender = col_character(),
+                               usertype = col_character(),
+                               birthyear = col_double()
+                           ))
+``` 
+
+
+```{r Inspecting the data}
+nrow(cyclistic_2019)
+colnames(cyclistic_2019)
+dim(cyclistic_2019)
+str(cyclistic_2019)
+head(cyclistic_2019)
+```
+
+```{r}
+# Use `spec()` to retrieve the full column specification for this data.
+spec(cyclistic_2019)
+```
+
+```{r look for errors}
+# call problems() to understand which columns and rows have issues
+problems_list <- problems(cyclistic_2019)
+print(problems_list)
+```
+
+```{r print errors}
+
+# If there are issues detected, investigate further
+if (nrow(problems_list) > 0) {
+    message("There are parsing issues. Please check the 'problems_list' dataframe for details.")
+} else {
+    message("No parsing issues detected.")
+}
+```
+```{r convert data from chr to time}
+# Convert start_time and end_time columns from character to datetime using lubridate
+cyclistic_2019_clean <- cyclistic_2019 %>%
+  mutate(
+    # Convert and format start_time
+    start_time = mdy_hm(start_time),  # Parse to POSIXct
+    start_time_formatted = format(start_time, "%m/%d/%Y %I:%M:%S %p"),  # Format to desired format
+
+    # Convert and format end_time
+    end_time = mdy_hm(end_time),  # Parse to POSIXct
+    end_time_formatted = format(end_time, "%m/%d/%Y %I:%M:%S %p")  # Format to desired format
+  )
+
+# Print the first few rows to check the transformation
+head(cyclistic_2019)
+View(cyclistic_2019)
+```
+
+
+
+```{r}
+# Recheck using problem()
+problems_list1 <-problems(cyclistic_2019_clean)
+print(problems_list)
+# If there are issues detected, investigate further
+if (nrow(problems_list) > 0) {
+    message("There are parsing issues. Please check the 'problems_list' dataframe for details.")
+} else {
+    message("No parsing issues detected.")}
+```
+
+```{r Remove "bad" data}
+# The dataframe includes a few hundred entries when bikes were taken out of docks and checked for quality by Divvy or ride_length was negative
+# We will create a new version of the dataframe (v2) since data is being removed
+
+cyclistic_2019_clean2 <- cyclistic_2019_clean[!(cyclistic_2019_clean$from_station_name == "HQ QR" | cyclistic_2019_clean$tripduration < 0),]
+
+head(cyclistic_2019_clean2)
+str(cyclistic_2019_clean2)
+write_csv(cyclistic_2019_clean2, "cyclistic_cleaned_data.csv")
+```
+
+# STEP 4: CONDUCT DESCRIPTIVE ANALYSIS
+ 
+```{r summary of data presented }
+# Descriptive analysis on tripduration (all figures in seconds)
+mean_trip_duration <- mean(cyclistic_2019_clean2$tripduration)
+median_trip_duration <- median(cyclistic_2019_clean2$tripduration) 
+max_trip_duration <- max(cyclistic_2019_clean2$tripduration)
+min_trip_duration <- min(cyclistic_2019_clean2$tripduration)
+
+# Condensed summary
+trip_duration_summary <- summary(cyclistic_2019_clean2$tripduration)
+head(trip_duration_summary)
+```
+ 
+```{r group summary by usertype}
+
+# Group by usertype and summarize tripduration
+summary_by_usertype <- cyclistic_2019_clean2 %>%
+  group_by(usertype) %>%
+  summarise(
+    total_rides = n(),
+    mean_trip_duration = mean(tripduration, na.rm = TRUE),
+    median_trip_duration = median(tripduration, na.rm = TRUE),
+    max_trip_duration = max(tripduration, na.rm = TRUE),
+    min_trip_duration = min(tripduration, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# View the summary
+print(summary_by_usertype)
+write_csv(summary_by_usertype, "summary_by_usertype.csv" )
+```
+```{r}
+
+# Add weekday column to the dataset
+cyclistic_2019_clean2 <- cyclistic_2019_clean2 %>%
+  mutate(day_of_week = wday(start_time, label = TRUE, abbr = FALSE)) %>%  # Create day_of_week field
+  mutate(day_of_week = factor(day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")))  # Order days of the week
+
+# Calculate average trip duration by usertype and day_of_week
+average_ride_time_by_day <- cyclistic_2019_clean2 %>%
+  group_by(usertype, day_of_week) %>%
+  summarise(
+    average_duration = mean(tripduration, na.rm = TRUE),  # Calculate average trip duration
+    number_of_rides = n()  # Count the number of rides
+  ) %>%
+  arrange(usertype, day_of_week)  # Arrange by usertype and day of the week
+
+# View the result
+print(average_ride_time_by_day)
+write_csv(average_ride_time_by_day, "average_ride_time_by_day.csv")
+```
+
+```{r rides by weekday and usertype}
+
+# Plot number of rides by weekday and usertype
+cyclistic_2019_clean2 %>%
+  mutate(day_of_week = wday(start_time, label = TRUE, abbr = FALSE)) %>%
+  group_by(usertype, day_of_week) %>%
+  summarise(number_of_rides = n(),  # Count the number of rides
+            average_duration = mean(tripduration, na.rm = TRUE)) %>%  # Calculate average duration
+  arrange(usertype, day_of_week) %>%
+  ggplot(aes(x = day_of_week, y = number_of_rides, fill = usertype)) +
+  geom_col(position = "dodge") +
+  labs(x = "Day of the Week", y = "Number of Rides", title = "Number of Rides by Day of the Week and User Type") +
+  theme_minimal()
+
+```
+
+```{r}
+
+# Plot average trip duration by weekday and usertype
+cyclistic_2019_clean2 %>%
+  mutate(day_of_week = wday(start_time, label = TRUE, abbr = FALSE)) %>%
+  group_by(usertype, day_of_week) %>%
+  summarise(number_of_rides = n(),  # Count the number of rides
+            average_duration = mean(tripduration, na.rm = TRUE)) %>%  # Calculate average duration
+  arrange(usertype, day_of_week) %>%
+  ggplot(aes(x = day_of_week, y = average_duration, fill = usertype)) +
+  geom_col(position = "dodge") +
+  labs(x = "Day of the Week", y = "Average Duration (Seconds)", title = "Average Trip Duration by Day of the Week and User Type") +
+  theme_minimal()
+```
+
+## STEP 5: Analysis Results
+
+### Summary 
+The main focus and scope of this analysis was **understanding how regular customers and subscribers behave differently** when using the Cyclistic bike-share services. The data outputs generated by the code displayed above and the visualizations created using the `ggplot2` package lead us to the following conclusions:
+
+* Customers (non-members) tend to take fewer rides than subscribers, with 106,194 total rides compared to 597,860 total rides per user type.
+
+* Customers, however, tend to ride the bicycles longer on average than subscribers, with an average ride duration of 3,665.46 seconds compared to 749.41 seconds for subscribers. Even the longest ride shows that non-members lead the way with 8,585,902 seconds, compared to 5,169,622 seconds for subscribers.
+
+* The day of the week with the largest number of rides for customers is Sunday, with 25,333 rides. Subscribers, on the other hand, use the bike-share service the most on Wednesday, with 96,966 rides.
+
+* Subscribers use the bike-share services on weekends (Sunday and Saturday) the least, with almost half the number of rides compared to weekdays—54,091 and 50,930 rides, respectively, compared to an average of over 10,000 rides on weekdays.
+
+## Observations:
+* Customers usually ride the bicycle longer and prefer weekends over weekdays, leading us to conclude that they are more inclined to use the Cyclistic bike-share services primarily for leisure.
+
+* Subscribers, on the other hand, exhibit a consistent number of rides on weekdays, with similar average trip durations. This suggests that subscribers use the bike-share service primarily for commuting to work or school. This hypothesis is further supported by the significant decrease in the number of rides during weekends.
+
+## Recommendations for the Marketing Strategy:
+1. To increase the number of subscribers, target individuals living near bike stations, as they might prefer bicycles for short-distance commuting.
+
+2. Focus the marketing campaign on the health benefits of using bicycles compared to personal cars, targeting regular customers.
+
+3. Create annual challenges and marathons in which subscribers could participate in their free time. This approach will combine the benefits of annual subscriptions with the leisure preferences of non-members.
+
+
+# Conclusion 
+My analysis shows that Cyclistic's regular customers and subscribers use the bike-share service in quite different ways. Customers seem to enjoy leisurely rides, especially on weekends, while subscribers rely on the service more during weekdays, likely for their daily commutes. This suggests that customers are in it for the fun, while subscribers use it as a practical transportation option. To attract more subscribers, we should focus on reaching out to people living near bike stations and emphasize the health benefits of cycling over driving. Additionally, organizing annual challenges or events could bring together both casual riders and regular commuters, making the bike-share experience more engaging for everyone.
